@@ -5,10 +5,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
-public class LombokThrowingExceptionImpl implements LombokThrowingException {
+public class LombokThrowingExceptionJdkProxyImpl implements LombokThrowingExceptionJdkProxy {
     private final JdbcTemplate jdbcTemplate;
 
-    public LombokThrowingExceptionImpl(JdbcTemplate jdbcTemplate) {
+    public LombokThrowingExceptionJdkProxyImpl(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
@@ -23,6 +23,13 @@ public class LombokThrowingExceptionImpl implements LombokThrowingException {
     @Override
     public void withRollbackFor() {
         jdbcTemplate.execute("insert into test_table values('LombokThrowingExceptionImpl.withRollbackFor')");
+        throw new CustomCheckedException("Rollback?");
+    }
+
+    @SneakyThrows
+    @Override
+    public void dontRollbackOn() {
+        jdbcTemplate.execute("insert into test_table values('dontRollbackOn')");
         throw new CustomCheckedException("Rollback?");
     }
 }

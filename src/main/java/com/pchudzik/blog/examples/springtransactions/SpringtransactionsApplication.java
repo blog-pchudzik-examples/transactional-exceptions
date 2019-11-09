@@ -11,15 +11,18 @@ public class SpringtransactionsApplication {
     private static final Logger log = LoggerFactory.getLogger(SpringtransactionsApplication.class);
 
     private final ConfigurableApplicationContext ctx;
-    private final ExceptionThrowingService exceptionThrowingService;
+    private final ExceptionThrowing exceptionThrowing;
+    private final LombokThrowingExceptionJdkProxy lombokThrowingExceptionJdkProxy;
     private final TestDataRepository repository;
 
     public SpringtransactionsApplication(
             ConfigurableApplicationContext ctx,
-            ExceptionThrowingService exceptionThrowingService,
+            ExceptionThrowing exceptionThrowing,
+            LombokThrowingExceptionJdkProxy lombokThrowingExceptionJdkProxy,
             TestDataRepository repository) {
         this.ctx = ctx;
-        this.exceptionThrowingService = exceptionThrowingService;
+        this.exceptionThrowing = exceptionThrowing;
+        this.lombokThrowingExceptionJdkProxy = lombokThrowingExceptionJdkProxy;
         this.repository = repository;
     }
 
@@ -28,7 +31,8 @@ public class SpringtransactionsApplication {
 
         SpringtransactionsApplication app = new SpringtransactionsApplication(
                 ctx,
-                ctx.getBean(ExceptionThrowingService.class),
+                ctx.getBean(ExceptionThrowing.class),
+                ctx.getBean(LombokThrowingExceptionJdkProxy.class),
                 ctx.getBean(TestDataRepository.class));
 
         app.testInfrastructureWorking();
@@ -36,6 +40,7 @@ public class SpringtransactionsApplication {
         app.nothingIsRolledBackOnCheckedException();
         app.rollbackOnAndDeclaredException();
         app.rollbackOnAndRuntimeException();
+        app.rollbackOnRuntimeException();
         app.noRollbackForRuntimeException();
         app.rollbackForAnyException(Exception.class);
         app.rollbackForAnyException(RuntimeException.class);
@@ -44,150 +49,118 @@ public class SpringtransactionsApplication {
 
         app.lombokSneakThrowsIsRolledBackForCglibProxy();
         app.lombokSneakThrowsIsRolledBackForJdkProxy();
+        app.lombokSneakThrowsIsDontRolledBackForJdkProxy();
         app.lombokRollbackForOnJdkProxy();
         app.lombokRollbackOnCglibProxy();
+        app.lombokDontRollbackOnCglibProxy();
+    }
+
+    private void lombokSneakThrowsIsDontRolledBackForJdkProxy() {
+        execute(
+                "LombokThrowingExceptionJdkProxy.dontRollbackOn",
+                lombokThrowingExceptionJdkProxy::dontRollbackOn);
+    }
+
+    private void lombokDontRollbackOnCglibProxy() {
+        execute(
+                "ExceptionThrowing.withDontRollbackForAndSneakyThrows",
+                exceptionThrowing::withDontRollbackForAndSneakyThrows);
+    }
+
+    private void rollbackOnRuntimeException() {
+        execute(
+                "ExceptionThrowing.doRollbackOnRuntimeException",
+                exceptionThrowing::doRollbackOnRuntimeException);
     }
 
     private void noRollbackForAnyException(Class<? extends Exception> exceptionClass) {
-        execute("DontRollbackOn " + exceptionClass.getName(), () -> {
-            try {
-                exceptionThrowingService.noRollbackOnAnyException(exceptionClass);
-            } catch (Exception ex) {
-                log.info("dontRollbackOn {}: {}", exceptionClass.getName(), repository.findAll());
-            }
-        });
+        execute(
+                "ExceptionThrowing.noRollbackOnAnyException " + exceptionClass.getName(),
+                () -> exceptionThrowing.noRollbackOnAnyException(exceptionClass));
     }
 
     private void rollbackForAnyException(Class<? extends Exception> exceptionClass) {
-        execute("Rollback for " + exceptionClass.getName(), () -> {
-            try {
-                exceptionThrowingService.rollbackForAnyException(exceptionClass);
-            } catch (Exception ex) {
-                log.info("Rollback for {}: {}", exceptionClass, repository.findAll());
-            }
-        });
+        execute(
+                "ExceptionThrowing.rollbackForAnyException " + exceptionClass.getName(),
+                () -> exceptionThrowing.rollbackForAnyException(exceptionClass));
     }
 
     private void noRollbackForRuntimeException() {
-        execute("DontRollbackOn RuntimeException", ()->{
-            try {
-                exceptionThrowingService.noRollbackOnRuntimeException();
-            } catch (Exception ex) {
-                log.info("After dontRollbackOn RuntimeException and throwing runtime exception {}", repository.findAll());
-            }
-        });
+        execute(
+                "ExceptionThrowing.noRollbackOnRuntimeException",
+                exceptionThrowing::noRollbackOnRuntimeException);
     }
 
     private void rollbackOnAndRuntimeException() {
-        execute("RollbackOn declared and throwing runtime exception", () -> {
-            try {
-                exceptionThrowingService.withRollbackOnAndRuntimeException();
-            } catch (Exception ex) {
-                log.info("After rollbackOn and throwing runtime exception {}", repository.findAll());
-            }
-        });
+        execute(
+                "ExceptionThrowing.withRollbackOnAndRuntimeException",
+                exceptionThrowing::withRollbackOnAndRuntimeException);
     }
 
     private void rollbackOnAndDeclaredException() {
-        execute("RollbackOn declared and throwing declared exception", () -> {
-            try {
-                exceptionThrowingService.withRollbackOnAndDeclaredException();
-            } catch (Exception ex) {
-                log.info("After rollbackOn and throwing declared exception {}", repository.findAll());
-            }
-        });
+        execute(
+                "ExceptionThrowing.withRollbackOnAndDeclaredException",
+                exceptionThrowing::withRollbackOnAndDeclaredException);
     }
 
     private void lombokRollbackOnCglibProxy() {
         execute(
-                "Rollback on with @SneakyThrows", () -> {
-                    try {
-                        exceptionThrowingService.withRollbackForAndSneakyThrows();
-                    } catch (Exception ex) {
-                        log.info("After rollbackOn and sneaky throws on cglib proxy: {}", repository.findAll());
-                    }
-                });
+                "ExceptionThrowing.withRollbackForAndSneakyThrows",
+                exceptionThrowing::withRollbackForAndSneakyThrows);
     }
 
     private void lombokRollbackForOnJdkProxy() {
         execute(
-                "Lombok rollback on jdk proxy", () -> {
-                    try {
-                        lombokThrowingException().withRollbackFor();
-                    } catch (Exception ex) {
-                        log.info("After rollbackOn and sneaky throws on jdk proxy: {}", repository.findAll());
-                    }
-                });
+                "LombokThrowingExceptionJdkProxy.withRollbackFor",
+                lombokThrowingExceptionJdkProxy::withRollbackFor);
     }
 
     private void lombokSneakThrowsIsRolledBackForJdkProxy() {
         execute(
-                "Lombok on jdk proxy", () -> {
-                    try {
-                        lombokThrowingException().sneakyThrows();
-                    } catch (Exception ex) {
-                        log.info("After lombok sneaky throws on jdk proxy: {}", repository.findAll());
-                    }
-                });
-    }
-
-    private LombokThrowingException lombokThrowingException() {
-        return ctx.getBean(LombokThrowingException.class);
+                "LombokThrowingExceptionJdkProxy.sneakyThrows",
+                lombokThrowingExceptionJdkProxy::sneakyThrows);
     }
 
     private void lombokSneakThrowsIsRolledBackForCglibProxy() {
         execute(
-                "Sneaky throws from lombok", () -> {
-                    try {
-                        exceptionThrowingService.lombokSurprise();
-                    } catch (Exception ex) {
-                        log.info("After @SneakyThrows: {}", repository.findAll());
-                    }
-                });
+                "ExceptionThrowing.lombokSurprise",
+                exceptionThrowing::lombokSurprise);
     }
 
     private void nothingIsRolledBackOnCheckedException() {
         execute(
-                "Checked exception and no rollback", () -> {
-                    try {
-                        exceptionThrowingService.noRollbackOnCheckedException();
-                    } catch (Exception ex) {
-                        log.info("After catching checked exception: {}", repository.findAll());
-                    }
-                });
+                "ExceptionThrowing.noRollbackOnCheckedException",
+                exceptionThrowing::noRollbackOnCheckedException);
     }
 
     private void testRuntimeExceptionRollback() {
         execute(
-                "RuntimeException rollback", () -> {
-                    try {
-                        exceptionThrowingService.rollbacksOnRuntimeException();
-                    } catch (RuntimeException ex) {
-                        log.info("After throwing exception: {}", repository.findAll());
-                    }
-                });
+                "ExceptionThrowing.rollbacksOnRuntimeException",
+                exceptionThrowing::rollbacksOnRuntimeException);
     }
 
     public void testInfrastructureWorking() {
         execute(
-                "Infrastructure test",
-                () -> {
-                    exceptionThrowingService.simplySavesTheData();
-                    log.info("Found data: {}", repository.findAll());
-                });
+                "ExceptionThrowing.simplySavesTheData",
+                exceptionThrowing::simplySavesTheData);
     }
 
 
     public void execute(String name, Action action) {
-        log.info("====================");
+        log.info("");
         log.info("Running: {}", name);
-        action.execute();
+        try {
+            action.execute();
+            log.info("After:   {}: {}", name, repository.findAll());
+        } catch (Exception ex) {
+            log.info("After:   {}: {}", name, repository.findAll());
+        }
         repository.clearAll();
         assert repository.findAll().isEmpty();
     }
 
     public interface Action {
-        void execute();
+        void execute() throws Exception;
     }
 
 }

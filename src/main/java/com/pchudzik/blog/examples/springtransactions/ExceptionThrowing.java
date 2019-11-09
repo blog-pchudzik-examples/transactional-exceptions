@@ -7,10 +7,10 @@ import org.springframework.stereotype.Service;
 import javax.transaction.Transactional;
 
 @Service
-public class ExceptionThrowingService {
+public class ExceptionThrowing {
     private final JdbcTemplate jdbcTemplate;
 
-    public ExceptionThrowingService(JdbcTemplate jdbcTemplate) {
+    public ExceptionThrowing(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
     }
 
@@ -49,9 +49,22 @@ public class ExceptionThrowingService {
         throw new IllegalStateException("Exception");
     }
 
+    @Transactional(rollbackOn = RuntimeException.class)
+    public void doRollbackOnRuntimeException() {
+        jdbcTemplate.execute("insert into test_table values('doRollbackOnRuntimeException')");
+        throw new IllegalStateException("Exception");
+    }
+
     @SneakyThrows
     @Transactional(rollbackOn = CustomCheckedException.class)
     public void withRollbackForAndSneakyThrows() {
+        jdbcTemplate.execute("insert into test_table values('withRollbackForAndDeclaredException!')");
+        throw new CustomCheckedException("rollback me");
+    }
+
+    @SneakyThrows
+    @Transactional(dontRollbackOn = CustomCheckedException.class)
+    public void withDontRollbackForAndSneakyThrows() {
         jdbcTemplate.execute("insert into test_table values('withRollbackForAndDeclaredException!')");
         throw new CustomCheckedException("rollback me");
     }
